@@ -1,0 +1,9 @@
+{
+  "name": "N5673T Flight Assessment",
+  "short_name": "N5673T",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e141b",
+  "theme_color": "#0e141b",
+  "icons": []
+}

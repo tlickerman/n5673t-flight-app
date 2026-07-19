@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: n5673t-flight-app
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATA_DIR
+        value: /data
+    disk:
+      name: n5673t-data
+      mountPath: /data
+      sizeGB: 1

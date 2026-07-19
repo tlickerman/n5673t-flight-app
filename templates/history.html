@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>N5673T Flight History</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="tail">N5673T</div>
+  <div class="sub">Flight History</div>
+</header>
+<main>
+  <div class="panel">
+    <div class="panel-body">
+      <table class="wb-table">
+        <thead><tr><th>Date</th><th>Pilot</th><th>T/O Wt</th><th>Risk</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for s in submissions %}
+          <tr>
+            <td>{{ s.submitted_at[:10] }}</td>
+            <td>{{ s.pilot_name }}</td>
+            <td>{{ s.takeoff_weight_lb }} lb</td>
+            <td>{{ s.risk_grand_total }} ({{ s.risk_level }})</td>
+            <td>{{ "OK" if s.wb_within_limits else "CHECK" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">No submissions yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p><a href="/" style="color: var(--blue);">&larr; Back to form</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: letter; margin: 1.5cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #111; }
+  h1 { font-size: 15pt; margin-bottom: 2px; }
+  h2 { font-size: 11pt; background: #e8edf1; padding: 4px 6px; margin-top: 14px; margin-bottom: 6px; }
+  .subtitle { color: #555; font-size: 9pt; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  td, th { border: 1px solid #ccc; padding: 4px 6px; font-size: 9pt; text-align: left; }
+  th { background: #f2f2f2; }
+  .num { text-align: right; }
+  .status-ok { color: #1a7a3f; font-weight: bold; }
+  .status-warn { color: #b02a2a; font-weight: bold; }
+  .two-col { width: 100%; }
+  .two-col td { border: none; padding: 2px 4px; vertical-align: top; width: 50%; }
+  .small { font-size: 8pt; color: #666; }
+</style>
+</head>
+<body>
+  <h1>N5673T Flight Assessment</h1>
+  <div class="subtitle">Tecnam P92 Echo MK2 &middot; KPWK &middot; {{ form.date }}</div>
+
+  <table class="two-col">
+    <tr>
+      <td><strong>Pilot 1:</strong> {{ form.pilot_1 }}</td>
+      <td><strong>Pilot 2 / IP / SP:</strong> {{ form.pilot_2 }}</td>
+    </tr>
+    <tr>
+      <td><strong>Start:</strong> {{ form.start_time }}</td>
+      <td><strong>Stop:</strong> {{ form.stop_time }}</td>
+    </tr>
+    <tr>
+      <td><strong>Departure:</strong> {{ form.departure_airport }}</td>
+      <td><strong>Destination:</strong> {{ form.destination_airport }}</td>
+    </tr>
+  </table>
+
+  <h2>Weight &amp; Balance</h2>
+  <table>
+    <tr><th>Item</th><th class="num">Wt (lb)</th><th class="num">Arm (in)</th><th class="num">Moment</th></tr>
+    <tr><td>Basic Empty Wt.</td><td class="num">{{ wb.empty.weight_lb }}</td><td class="num">{{ wb.empty.arm_in }}</td><td class="num">{{ wb.empty.moment_lb_in }}</td></tr>
+    <tr><td>Pilot &amp; Passenger</td><td class="num">{{ wb.occupants.weight_lb }}</td><td class="num">{{ wb.occupants.arm_in }}</td><td class="num">{{ wb.occupants.moment_lb_in }}</td></tr>
+    <tr><td>Baggage</td><td class="num">{{ wb.baggage.weight_lb }}</td><td class="num">{{ wb.baggage.arm_in }}</td><td class="num">{{ wb.baggage.moment_lb_in }}</td></tr>
+    <tr><td>Zero Fuel Wt. ({{ wb.zero_fuel.pct_mac }}% MAC)</td><td class="num">{{ wb.zero_fuel.weight_lb }}</td><td class="num">{{ wb.zero_fuel.arm_in }}</td><td class="num">{{ wb.zero_fuel.moment_lb_in }}</td></tr>
+    <tr><td>Fuel</td><td class="num">{{ wb.fuel.weight_lb }}</td><td class="num">{{ wb.fuel.arm_in }}</td><td class="num">{{ wb.fuel.moment_lb_in }}</td></tr>
+    <tr><td>Ramp Wt.</td><td class="num">{{ wb.ramp.weight_lb }}</td><td class="num">{{ wb.ramp.arm_in }}</td><td class="num">{{ wb.ramp.moment_lb_in }}</td></tr>
+    <tr><td>Ground Fuel Use</td><td class="num">{{ wb.ground_fuel_use_lb }}</td><td class="num">&mdash;</td><td class="num">&mdash;</td></tr>
+    <tr><td><strong>T/O Wt. ({{ wb.takeoff.pct_mac }}% MAC)</strong></td><td class="num"><strong>{{ wb.takeoff.weight_lb }}</strong></td><td class="num"><strong>{{ wb.takeoff.arm_in }}</strong></td><td class="num"><strong>{{ wb.takeoff.moment_lb_in }}</strong></td></tr>
+    <tr><td>Est. Fuel Burn</td><td class="num">{{ wb.est_fuel_burn_lb }}</td><td class="num">&mdash;</td><td class="num">&mdash;</td></tr>
+    <tr><td><strong>Est. LDG Wt. ({{ wb.landing.pct_mac }}% MAC)</strong></td><td class="num"><strong>{{ wb.landing.weight_lb }}</strong></td><td class="num"><strong>{{ wb.landing.arm_in }}</strong></td><td class="num"><strong>{{ wb.landing.moment_lb_in }}</strong></td></tr>
+  </table>
+  {% if wb.within_limits %}
+    <div class="status-ok">Within weight &amp; CG limits.</div>
+  {% else %}
+    <div class="status-warn">{% for w in wb.warnings %}{{ w }}<br>{% endfor %}</div>
+  {% endif %}
+  <div class="small">Limits: Max T/O &amp; LDG {{ wb.limits.max_takeoff_lb }} lb. CG envelope {{ wb.limits.fwd_pct_mac }}&ndash;{{ wb.limits.aft_pct_mac }}% MAC. {{ wb.limits.cg_source_note }}</div>
+
+  <h2>Current Conditions</h2>
+  <div class="small">{{ weather.metar.raw if weather.metar else "No weather data captured." }}</div>
+
+  <h2>Risk Assessment</h2>
+  <table>
+    <tr><th>Category</th><th class="num">Score</th></tr>
+    {% for cat, total in risk.category_totals.items() %}
+    <tr><td>{{ cat|capitalize }}</td><td class="num">{{ total }}</td></tr>
+    {% endfor %}
+    <tr><td><strong>Grand Total</strong></td><td class="num"><strong>{{ risk.grand_total }}</strong></td></tr>
+  </table>
+  <div class="{{ 'status-ok' if risk.level == 'green' else 'status-warn' }}">{{ risk.level_label }}</div>
+  {% if risk.manager_approval_required %}<div class="status-warn">Manager approval required.</div>{% endif %}
+
+  <h2>Mission Notes</h2>
+  <div class="small">
+    <strong>Mission:</strong> {{ form.mission_notes }}<br>
+    <strong>Departure Routing:</strong> {{ form.departure_routing }}<br>
+    <strong>Arrival Routing:</strong> {{ form.arrival_routing }}<br>
+    <strong>NOTAMs:</strong> {{ form.notams }}<br>
+    <strong>Emergency Procedures:</strong> {{ form.emergency_procedures }}<br>
+    <strong>Risk Considerations:</strong> {{ form.risk_considerations }}<br>
+    <strong>Final Notes:</strong> {{ form.final_notes }}
+  </div>
+</body>
+</html>
