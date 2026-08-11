@@ -62,7 +62,8 @@ def api_density_altitude():
 def api_calculate_wb():
     data = request.get_json(force=True) or {}
     result = calculate_wb(
-        pilot_passenger_lb=data.get("pilot_passenger_lb", 0),
+        pilot_lb=data.get("pilot_lb", 0),
+        passenger_lb=data.get("passenger_lb", 0),
         baggage_lb=data.get("baggage_lb", 0),
         fuel_gal=data.get("fuel_gal", 0),
         ground_fuel_use_gal=data.get("ground_fuel_use_gal", 0),
@@ -84,7 +85,8 @@ def api_submit():
     weather_data = payload.get("weather_data", {})
 
     wb_result = calculate_wb(
-        pilot_passenger_lb=form_data.get("pilot_passenger_lb", 0),
+        pilot_lb=form_data.get("pilot_lb", 0),
+        passenger_lb=form_data.get("passenger_lb", 0),
         baggage_lb=form_data.get("baggage_lb", 0),
         fuel_gal=form_data.get("fuel_gal", 0),
         ground_fuel_use_gal=form_data.get("ground_fuel_use_gal", 0),

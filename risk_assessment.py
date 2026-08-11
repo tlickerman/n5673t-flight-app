@@ -55,21 +55,30 @@ CATEGORIES = {
 def score_risk(responses):
     """
     responses: dict of {item_key: rating (1-5 int)}
-    Returns per-category totals, grand total, risk level, and flags.
+    Returns per-category totals, grand total, risk level, flags, and a
+    full item-by-item breakdown (label + selected rating + option text)
+    for detailed reporting in the PDF.
     """
     category_totals = {}
     any_five = False
-    all_keys = []
+    item_details = []
 
     for cat_key, cat in CATEGORIES.items():
         total = 0
         for item_key, label, options in cat["items"]:
-            all_keys.append(item_key)
             rating = int(responses.get(item_key, 0) or 0)
             rating = max(0, min(5, rating))
             total += rating
             if rating == 5:
                 any_five = True
+            selected_option = options[rating - 1] if 1 <= rating <= len(options) else "\u2014"
+            item_details.append({
+                "category": cat["label"],
+                "key": item_key,
+                "label": label,
+                "rating": rating,
+                "selected_option": selected_option,
+            })
         category_totals[cat_key] = total
 
     grand_total = sum(category_totals.values())
@@ -93,4 +102,5 @@ def score_risk(responses):
         "level_label": level_label,
         "any_five_rating": any_five,
         "manager_approval_required": manager_approval_required,
+        "items": item_details,
     }

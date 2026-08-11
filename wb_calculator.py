@@ -15,12 +15,14 @@ def _station(weight_lb, arm_in):
     return {"weight_lb": weight_lb, "arm_in": arm_in, "moment_lb_in": moment_lb_in}
 
 
-def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use_gal=0):
+def calculate_wb(pilot_lb=0, passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use_gal=0):
     """
     Compute the full weight & balance chain matching the paper Takeoff Data
-    Sheet: Basic Empty -> + occupants/baggage -> Zero Fuel Wt -> + fuel ->
-    Ramp Wt -> - ground fuel use (taxi) -> T/O Wt -> - est. fuel burn ->
-    Est. Landing Wt. Returns a dict ready to render in the form and PDF.
+    Sheet: Basic Empty -> + pilot + passenger + baggage -> Zero Fuel Wt ->
+    + fuel -> Ramp Wt -> - ground fuel use (taxi) -> T/O Wt -> - est. fuel
+    burn -> Est. Landing Wt. Returns a dict ready to render in the form and
+    PDF. Pilot and passenger share the same station arm (P92 is a 2-seat
+    side-by-side aircraft) but are tracked as separate line items.
     """
     warnings = []
 
@@ -30,7 +32,8 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
         "moment_lb_in": AC.EMPTY_WEIGHT_MOMENT_LB_IN,
     }
 
-    occupants = _station(pilot_passenger_lb, AC.PILOT_PASSENGER_ARM_IN)
+    pilot = _station(pilot_lb, AC.PILOT_PASSENGER_ARM_IN)
+    passenger = _station(passenger_lb, AC.PILOT_PASSENGER_ARM_IN)
     baggage = _station(baggage_lb, AC.BAGGAGE_ARM_IN)
 
     if float(baggage_lb or 0) > AC.BAGGAGE_MAX_LB:
@@ -38,9 +41,9 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
             f"Baggage {baggage_lb} lb exceeds max baggage weight of {AC.BAGGAGE_MAX_LB} lb."
         )
 
-    # Zero Fuel Weight = empty + occupants + baggage
-    zfw_weight = empty["weight_lb"] + occupants["weight_lb"] + baggage["weight_lb"]
-    zfw_moment = empty["moment_lb_in"] + occupants["moment_lb_in"] + baggage["moment_lb_in"]
+    # Zero Fuel Weight = empty + pilot + passenger + baggage
+    zfw_weight = empty["weight_lb"] + pilot["weight_lb"] + passenger["weight_lb"] + baggage["weight_lb"]
+    zfw_moment = empty["moment_lb_in"] + pilot["moment_lb_in"] + passenger["moment_lb_in"] + baggage["moment_lb_in"]
     zfw_arm = round(zfw_moment / zfw_weight, 2) if zfw_weight else 0
     zfw_pct_mac = _arm_to_pct_mac(zfw_arm)
     zero_fuel = {"weight_lb": round(zfw_weight, 1), "arm_in": zfw_arm,
@@ -48,7 +51,7 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
 
     # Fuel load
     fuel_gal = float(fuel_gal or 0)
-    fuel_liters = fuel_gal * 3.78541
+    fuel_liters = fuel_gal * AC.LITERS_PER_GAL
     if fuel_liters > AC.FUEL_TOTAL_CAPACITY_L + 0.01:
         warnings.append(
             f"Fuel load {fuel_gal:.1f} gal exceeds total capacity of "
@@ -67,7 +70,7 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
 
     # Ground fuel use (taxi) — subtract before takeoff
     ground_fuel_use_gal = float(ground_fuel_use_gal or 0)
-    ground_fuel_lb = round(ground_fuel_use_gal * 3.78541 * AC.LB_PER_LITER_FUEL, 1)
+    ground_fuel_lb = round(ground_fuel_use_gal * AC.LITERS_PER_GAL * AC.LB_PER_LITER_FUEL, 1)
     ground_fuel_moment = round(ground_fuel_lb * AC.FUEL_ARM_IN, 1)
 
     to_weight = ramp_weight - ground_fuel_lb
@@ -78,9 +81,15 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
                "moment_lb_in": round(to_moment, 1), "pct_mac": to_pct_mac}
 
     if to_weight > AC.MAX_TAKEOFF_WEIGHT_LB:
+        excess_lb = to_weight - AC.MAX_TAKEOFF_WEIGHT_LB
+        excess_gal = excess_lb / AC.LB_PER_GAL_FUEL
+        allowed_fuel_gal = max(0, round(fuel_gal - excess_gal, 1))
         warnings.append(
             f"Takeoff weight {to_weight:.1f} lb exceeds max takeoff weight of "
-            f"{AC.MAX_TAKEOFF_WEIGHT_LB} lb."
+            f"{AC.MAX_TAKEOFF_WEIGHT_LB} lb by {excess_lb:.1f} lb. "
+            f"Reduce fuel to about {allowed_fuel_gal:.1f} gal (from {fuel_gal:.1f} gal loaded) "
+            f"to bring the aircraft within the takeoff weight limit. "
+            f"Note: this is a weight-only estimate — reducing fuel shifts CG slightly forward; recheck the CG result after adjusting."
         )
     if not (AC.FWD_LIMIT_PCT_MAC <= to_pct_mac <= AC.AFT_LIMIT_PCT_MAC):
         warnings.append(
@@ -88,9 +97,8 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
             f"{AC.FWD_LIMIT_PCT_MAC}-{AC.AFT_LIMIT_PCT_MAC}% MAC envelope."
         )
 
-    # Estimated fuel burn (+25% reserve factored in per form) — using
-    # remaining usable fuel minus 25% margin as a conservative landing estimate
-    est_burn_lb = round(fuel["weight_lb"] * 0.75, 1)  # assume 75% of loaded fuel burned
+    # Estimated fuel burn — assume 75% of loaded fuel burned by landing
+    est_burn_lb = round(fuel["weight_lb"] * 0.75, 1)
     est_burn_moment = round(est_burn_lb * AC.FUEL_ARM_IN, 1)
 
     ldg_weight = to_weight - est_burn_lb
@@ -101,9 +109,14 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
                "moment_lb_in": round(ldg_moment, 1), "pct_mac": ldg_pct_mac}
 
     if ldg_weight > AC.MAX_LANDING_WEIGHT_LB:
+        excess_ldg_lb = ldg_weight - AC.MAX_LANDING_WEIGHT_LB
+        excess_ldg_gal = excess_ldg_lb / AC.LB_PER_GAL_FUEL
+        allowed_fuel_gal_ldg = max(0, round(fuel_gal - excess_ldg_gal, 1))
         warnings.append(
             f"Est. landing weight {ldg_weight:.1f} lb exceeds max landing weight of "
-            f"{AC.MAX_LANDING_WEIGHT_LB} lb."
+            f"{AC.MAX_LANDING_WEIGHT_LB} lb by {excess_ldg_lb:.1f} lb. "
+            f"Reduce fuel loaded to about {allowed_fuel_gal_ldg:.1f} gal to land within limits "
+            f"given the assumed fuel burn."
         )
     if not (AC.FWD_LIMIT_PCT_MAC <= ldg_pct_mac <= AC.AFT_LIMIT_PCT_MAC):
         warnings.append(
@@ -113,7 +126,8 @@ def calculate_wb(pilot_passenger_lb=0, baggage_lb=0, fuel_gal=0, ground_fuel_use
 
     return {
         "empty": empty,
-        "occupants": occupants,
+        "pilot": pilot,
+        "passenger": passenger,
         "baggage": baggage,
         "zero_fuel": zero_fuel,
         "fuel": fuel,
