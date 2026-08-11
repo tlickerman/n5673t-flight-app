@@ -224,8 +224,15 @@ async function submitForm() {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+  showSaveConfirmation();
+}
 
-  resetForm();
+function showSaveConfirmation() {
+  const btn = document.querySelector(".footer-actions button.primary");
+  if (!btn) return;
+  const original = btn.textContent;
+  btn.textContent = "Saved \u2713";
+  setTimeout(() => { btn.textContent = original; }, 2000);
 }
 
 function resetForm() {

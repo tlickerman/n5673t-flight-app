@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>N5673T Flight Assessment</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ app_version }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}?v={{ app_version }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v={{ app_version }}">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f4f6f8">
@@ -193,12 +193,12 @@
 
 <div class="footer-actions">
   <button onclick="resetForm()">Reset</button>
-  <button class="primary" onclick="submitForm()">Save PDF &amp; Reset</button>
+  <button class="primary" onclick="submitForm()">Save PDF</button>
 </div>
 
 <script>
   const FUEL_CAPACITY_GAL = {{ fuel.capacity_gal }};
 </script>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
