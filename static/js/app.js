@@ -12,7 +12,8 @@ function fmt(n) {
 // ---------------------------------------------------------------------
 async function calcWB() {
   const payload = {
-    pilot_passenger_lb: parseFloat(document.getElementById("pilot_passenger_lb").value) || 0,
+    pilot_lb: parseFloat(document.getElementById("pilot_lb").value) || 0,
+    passenger_lb: parseFloat(document.getElementById("passenger_lb").value) || 0,
     baggage_lb: parseFloat(document.getElementById("baggage_lb").value) || 0,
     fuel_gal: parseFloat(document.getElementById("fuel_gal").value) || 0,
     ground_fuel_use_gal: parseFloat(document.getElementById("ground_fuel_use_gal").value) || 0,
@@ -29,9 +30,13 @@ async function calcWB() {
   document.getElementById("wb-empty-a").textContent = fmt(r.empty.arm_in);
   document.getElementById("wb-empty-m").textContent = fmt(r.empty.moment_lb_in);
 
-  document.getElementById("wb-occ-w").textContent = fmt(r.occupants.weight_lb);
-  document.getElementById("wb-occ-a").textContent = fmt(r.occupants.arm_in);
-  document.getElementById("wb-occ-m").textContent = fmt(r.occupants.moment_lb_in);
+  document.getElementById("wb-pilot-w").textContent = fmt(r.pilot.weight_lb);
+  document.getElementById("wb-pilot-a").textContent = fmt(r.pilot.arm_in);
+  document.getElementById("wb-pilot-m").textContent = fmt(r.pilot.moment_lb_in);
+
+  document.getElementById("wb-pax-w").textContent = fmt(r.passenger.weight_lb);
+  document.getElementById("wb-pax-a").textContent = fmt(r.passenger.arm_in);
+  document.getElementById("wb-pax-m").textContent = fmt(r.passenger.moment_lb_in);
 
   document.getElementById("wb-bag-w").textContent = fmt(r.baggage.weight_lb);
   document.getElementById("wb-bag-a").textContent = fmt(r.baggage.arm_in);
@@ -68,7 +73,7 @@ async function calcWB() {
   if (r.within_limits) {
     statusEl.innerHTML = `<div class="status-banner ok"><span class="dot green"></span>Within weight &amp; CG limits</div>`;
   } else {
-    statusEl.innerHTML = `<div class="status-banner warn"><span class="dot red"></span>${r.warnings.join("<br>")}</div>`;
+    statusEl.innerHTML = `<div class="status-banner warn"><span class="dot red"></span>${r.warnings.join("<br><br>")}</div>`;
   }
 }
 
@@ -156,7 +161,7 @@ function calcRisk() {
   const label = document.getElementById("risk-gauge-label");
   ring.textContent = grandTotal;
 
-  let level, levelText, colorClass;
+  let levelText, colorClass;
   if (grandTotal <= 29) { colorClass = "green"; levelText = "Low risk \u2014 SP solos require IP sign-off"; }
   else if (grandTotal <= 39) { colorClass = "yellow"; levelText = "Elevated risk \u2014 all solos require IP sign-off"; }
   else { colorClass = "red"; levelText = "High risk \u2014 manager approval required"; }
@@ -177,7 +182,7 @@ function collectFormData() {
     "departure_airport", "destination_airport", "mission_notes",
     "departure_routing", "arrival_routing", "notams", "emergency_procedures",
     "risk_considerations", "hours_prev_24", "wx_station", "crosswind_component",
-    "field_elevation", "regional_wx_notes", "pilot_passenger_lb", "baggage_lb",
+    "field_elevation", "regional_wx_notes", "pilot_lb", "passenger_lb", "baggage_lb",
     "fuel_gal", "ground_fuel_use_gal", "expected_runway", "runway_length",
     "to_ground_roll", "ldg_ground_roll", "to_dist_50", "ldg_dist_50",
     "mx_50hr", "mx_100hr", "mx_ad_hrs", "mx_ad_days", "mx_annual",
@@ -228,7 +233,7 @@ function resetForm() {
     if (el.id === "n_number") { el.value = "N5673T"; }
     else if (el.id === "departure_airport" || el.id === "wx_station") { el.value = "KPWK"; }
     else if (el.id === "fuel_gal") { el.value = FUEL_CAPACITY_GAL; }
-    else if (el.id === "pilot_passenger_lb" || el.id === "baggage_lb") { el.value = 0; }
+    else if (el.id === "pilot_lb" || el.id === "passenger_lb" || el.id === "baggage_lb") { el.value = 0; }
     else if (el.id === "ground_fuel_use_gal") { el.value = 0.5; }
     else if (!el.readOnly) { el.value = ""; }
   });

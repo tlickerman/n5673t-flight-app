@@ -1,15 +1,15 @@
 :root {
-  --bg: #0e141b;
-  --panel: #171f28;
-  --panel-raised: #1e2833;
-  --border: #2b3946;
-  --text: #eef2f5;
-  --text-dim: #8ea0b0;
-  --text-faint: #5c6d7c;
-  --green: #3fae6a;
-  --amber: #e2a03f;
-  --red: #d9534f;
-  --blue: #4f8fd9;
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --panel-raised: #eef2f5;
+  --border: #d7dee4;
+  --text: #16212c;
+  --text-dim: #4d5f6f;
+  --text-faint: #8496a4;
+  --green: #1f8a4c;
+  --amber: #b5720f;
+  --red: #c0392b;
+  --blue: #2266b8;
   --mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   --sans: -apple-system, "Inter", "Segoe UI", Roboto, sans-serif;
   --radius: 10px;
@@ -30,7 +30,7 @@ header.topbar {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(180deg, #131a22, #0e141b 90%);
+  background: linear-gradient(180deg, #ffffff, #f4f6f8 90%);
   border-bottom: 1px solid var(--border);
   padding: 14px 16px 12px;
 }
@@ -61,6 +61,7 @@ main {
   border-radius: var(--radius);
   margin-bottom: 16px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(22, 33, 44, 0.06);
 }
 
 .panel > .panel-header {
@@ -109,7 +110,7 @@ main {
 
 input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
   width: 100%;
-  background: #0e141b;
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
@@ -117,6 +118,8 @@ input[type="text"], input[type="number"], input[type="date"], input[type="time"]
   font-family: var(--mono);
   font-size: 14px;
 }
+
+input[readonly] { background: #f0f3f5; color: var(--text-dim); }
 
 textarea { font-family: var(--sans); min-height: 60px; resize: vertical; }
 
@@ -145,21 +148,22 @@ select { font-family: var(--sans); }
 
 .status-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 13px;
   margin-top: 10px;
   font-weight: 600;
+  line-height: 1.5;
 }
-.status-banner.ok { background: rgba(63,174,106,0.12); color: var(--green); border: 1px solid rgba(63,174,106,0.4); }
-.status-banner.warn { background: rgba(217,83,79,0.12); color: var(--red); border: 1px solid rgba(217,83,79,0.4); }
+.status-banner.ok { background: rgba(31,138,76,0.08); color: var(--green); border: 1px solid rgba(31,138,76,0.3); }
+.status-banner.warn { background: rgba(192,57,43,0.08); color: var(--red); border: 1px solid rgba(192,57,43,0.3); }
 
-.dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
-.dot.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.dot.green { background: var(--green); }
+.dot.amber { background: var(--amber); }
+.dot.red { background: var(--red); }
 
 .weather-actions { display: flex; gap: 8px; margin-bottom: 10px; }
 button {
@@ -174,14 +178,14 @@ button {
   cursor: pointer;
 }
 button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-button.fetch-btn { background: #223143; border-color: var(--blue); color: var(--blue); }
+button.fetch-btn { background: #e7f0fa; border-color: var(--blue); color: var(--blue); }
 button:active { transform: translateY(1px); }
 
 .metar-raw {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-dim);
-  background: #0e141b;
+  background: #f0f3f5;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
@@ -195,7 +199,7 @@ button:active { transform: translateY(1px); }
   gap: 8px;
 }
 .vspeed-chip {
-  background: #0e141b;
+  background: #f0f3f5;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px;
@@ -251,7 +255,7 @@ button:active { transform: translateY(1px); }
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(0deg, #0e141b 70%, transparent);
+  background: linear-gradient(0deg, #f4f6f8 70%, transparent);
   padding: 16px;
   display: flex;
   gap: 10px;

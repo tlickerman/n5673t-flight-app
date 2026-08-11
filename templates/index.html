@@ -6,8 +6,10 @@
 <title>N5673T Flight Assessment</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f6f8">
 </head>
 <body>
 <header class="topbar">
@@ -83,8 +85,9 @@
       <h2>Weight &amp; Balance</h2><span class="chev">&#9660;</span>
     </div>
     <div class="panel-body">
-      <div class="field-row"><label>Pilot &amp; Passenger (lb)</label><input type="number" id="pilot_passenger_lb" value="0" oninput="calcWB()"></div>
-      <div class="field-row"><label>Baggage (lb, max {{ 44 }})</label><input type="number" id="baggage_lb" value="0" oninput="calcWB()"></div>
+      <div class="field-row"><label>Pilot (lb)</label><input type="number" id="pilot_lb" value="0" oninput="calcWB()"></div>
+      <div class="field-row"><label>Passenger (lb)</label><input type="number" id="passenger_lb" value="0" oninput="calcWB()"></div>
+      <div class="field-row"><label>Baggage (lb, max 44)</label><input type="number" id="baggage_lb" value="0" oninput="calcWB()"></div>
       <div class="field-row"><label>Fuel loaded (gal, max {{ fuel.capacity_gal }})</label><input type="number" step="0.1" id="fuel_gal" value="{{ fuel.capacity_gal }}" oninput="calcWB()"></div>
       <div class="field-row"><label>Ground fuel use / taxi (gal)</label><input type="number" step="0.1" id="ground_fuel_use_gal" value="0.5" oninput="calcWB()"></div>
 
@@ -92,7 +95,8 @@
         <thead><tr><th>Item</th><th>Wt (lb)</th><th>Arm (in)</th><th>Moment</th></tr></thead>
         <tbody>
           <tr><td>Basic Empty Wt.</td><td id="wb-empty-w"></td><td id="wb-empty-a"></td><td id="wb-empty-m"></td></tr>
-          <tr><td>Pilot &amp; Passenger</td><td id="wb-occ-w"></td><td id="wb-occ-a"></td><td id="wb-occ-m"></td></tr>
+          <tr><td>Pilot</td><td id="wb-pilot-w"></td><td id="wb-pilot-a"></td><td id="wb-pilot-m"></td></tr>
+          <tr><td>Passenger</td><td id="wb-pax-w"></td><td id="wb-pax-a"></td><td id="wb-pax-m"></td></tr>
           <tr><td>Baggage</td><td id="wb-bag-w"></td><td id="wb-bag-a"></td><td id="wb-bag-m"></td></tr>
           <tr class="computed"><td>Zero Fuel Wt. (CG %MAC)</td><td id="wb-zfw-w"></td><td id="wb-zfw-a"></td><td id="wb-zfw-m"></td></tr>
           <tr><td>Fuel</td><td id="wb-fuel-w"></td><td id="wb-fuel-a"></td><td id="wb-fuel-m"></td></tr>

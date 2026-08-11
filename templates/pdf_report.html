@@ -17,6 +17,8 @@
   .two-col { width: 100%; }
   .two-col td { border: none; padding: 2px 4px; vertical-align: top; width: 50%; }
   .small { font-size: 8pt; color: #666; }
+  .radar-map { width: 100%; max-width: 480px; margin-top: 6px; border: 1px solid #ccc; }
+  .risk-total-5 { background: #fbdede; }
 </style>
 </head>
 <body>
@@ -42,7 +44,8 @@
   <table>
     <tr><th>Item</th><th class="num">Wt (lb)</th><th class="num">Arm (in)</th><th class="num">Moment</th></tr>
     <tr><td>Basic Empty Wt.</td><td class="num">{{ wb.empty.weight_lb }}</td><td class="num">{{ wb.empty.arm_in }}</td><td class="num">{{ wb.empty.moment_lb_in }}</td></tr>
-    <tr><td>Pilot &amp; Passenger</td><td class="num">{{ wb.occupants.weight_lb }}</td><td class="num">{{ wb.occupants.arm_in }}</td><td class="num">{{ wb.occupants.moment_lb_in }}</td></tr>
+    <tr><td>Pilot</td><td class="num">{{ wb.pilot.weight_lb }}</td><td class="num">{{ wb.pilot.arm_in }}</td><td class="num">{{ wb.pilot.moment_lb_in }}</td></tr>
+    <tr><td>Passenger</td><td class="num">{{ wb.passenger.weight_lb }}</td><td class="num">{{ wb.passenger.arm_in }}</td><td class="num">{{ wb.passenger.moment_lb_in }}</td></tr>
     <tr><td>Baggage</td><td class="num">{{ wb.baggage.weight_lb }}</td><td class="num">{{ wb.baggage.arm_in }}</td><td class="num">{{ wb.baggage.moment_lb_in }}</td></tr>
     <tr><td>Zero Fuel Wt. ({{ wb.zero_fuel.pct_mac }}% MAC)</td><td class="num">{{ wb.zero_fuel.weight_lb }}</td><td class="num">{{ wb.zero_fuel.arm_in }}</td><td class="num">{{ wb.zero_fuel.moment_lb_in }}</td></tr>
     <tr><td>Fuel</td><td class="num">{{ wb.fuel.weight_lb }}</td><td class="num">{{ wb.fuel.arm_in }}</td><td class="num">{{ wb.fuel.moment_lb_in }}</td></tr>
@@ -55,12 +58,20 @@
   {% if wb.within_limits %}
     <div class="status-ok">Within weight &amp; CG limits.</div>
   {% else %}
-    <div class="status-warn">{% for w in wb.warnings %}{{ w }}<br>{% endfor %}</div>
+    <div class="status-warn">{% for w in wb.warnings %}{{ w }}<br><br>{% endfor %}</div>
   {% endif %}
   <div class="small">Limits: Max T/O &amp; LDG {{ wb.limits.max_takeoff_lb }} lb. CG envelope {{ wb.limits.fwd_pct_mac }}&ndash;{{ wb.limits.aft_pct_mac }}% MAC. {{ wb.limits.cg_source_note }}</div>
 
   <h2>Current Conditions</h2>
-  <div class="small">{{ weather.metar.raw if weather.metar else "No weather data captured." }}</div>
+  <div class="small"><strong>METAR:</strong> {{ weather.metar.raw if weather.metar and weather.metar.raw else "No METAR captured." }}</div>
+  {% if weather.metar and weather.metar.decoded %}
+  <div class="small">{{ weather.metar.decoded }}</div>
+  {% endif %}
+  {% if weather.radar_url %}
+  <img class="radar-map" src="{{ weather.radar_url }}" alt="Regional radar">
+  <div class="small">Regional radar: {{ weather.radar_station }} (source: NWS radar.weather.gov)</div>
+  {% endif %}
+  <div class="small" style="margin-top:6px;"><strong>TAF:</strong> {{ weather.taf.raw if weather.taf and weather.taf.raw else "No TAF captured." }}</div>
 
   <h2>Risk Assessment</h2>
   <table>
@@ -72,6 +83,19 @@
   </table>
   <div class="{{ 'status-ok' if risk.level == 'green' else 'status-warn' }}">{{ risk.level_label }}</div>
   {% if risk.manager_approval_required %}<div class="status-warn">Manager approval required.</div>{% endif %}
+
+  <h3 style="font-size:10pt; margin-top:10px;">Detailed Responses</h3>
+  <table>
+    <tr><th>Category</th><th>Item</th><th class="num">Rating</th><th>Response</th></tr>
+    {% for item in risk['items'] %}
+    <tr{% if item.rating == 5 %} class="risk-total-5"{% endif %}>
+      <td>{{ item.category }}</td>
+      <td>{{ item.label }}</td>
+      <td class="num">{{ item.rating }}</td>
+      <td>{{ item.selected_option }}</td>
+    </tr>
+    {% endfor %}
+  </table>
 
   <h2>Mission Notes</h2>
   <div class="small">
