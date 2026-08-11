@@ -10,6 +10,17 @@ from wb_calculator import calculate_wb
 app = Flask(__name__)
 database.init_db()
 
+# Bump this on any static asset change (CSS/JS) so iOS home-screen PWAs,
+# which cache far more aggressively than a normal Safari tab, are forced
+# to fetch the new file instead of silently running stale JS against a
+# changed HTML structure.
+APP_VERSION = "3"
+
+
+@app.context_processor
+def inject_version():
+    return {"app_version": APP_VERSION}
+
 
 @app.route("/")
 def index():
