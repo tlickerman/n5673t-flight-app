@@ -19,6 +19,10 @@
   .small { font-size: 8pt; color: #666; }
   .radar-map { width: 100%; max-width: 480px; margin-top: 6px; border: 1px solid #ccc; }
   .risk-total-5 { background: #fbdede; }
+  .two-col-weather { border-collapse: collapse; }
+  .two-col-weather > tr > td { border: none; padding: 0 8px 0 0; vertical-align: top; width: 50%; }
+  .weather-col table { margin-top: 4px; }
+  .weather-col table td { font-size: 8pt; padding: 3px 5px; }
 </style>
 </head>
 <body>
@@ -63,15 +67,57 @@
   <div class="small">Limits: Max T/O &amp; LDG {{ wb.limits.max_takeoff_lb }} lb. CG envelope {{ wb.limits.fwd_pct_mac }}&ndash;{{ wb.limits.aft_pct_mac }}% MAC. {{ wb.limits.cg_source_note }}</div>
 
   <h2>Current Conditions</h2>
-  <div class="small"><strong>METAR:</strong> {{ weather.metar.raw if weather.metar and weather.metar.raw else "No METAR captured." }}</div>
-  {% if weather.metar and weather.metar.decoded %}
-  <div class="small">{{ weather.metar.decoded }}</div>
-  {% endif %}
-  {% if weather.radar_url %}
-  <img class="radar-map" src="{{ weather.radar_url }}" alt="Regional radar">
-  <div class="small">Regional radar: {{ weather.radar_station }} (source: NWS radar.weather.gov)</div>
-  {% endif %}
-  <div class="small" style="margin-top:6px;"><strong>TAF:</strong> {{ weather.taf.raw if weather.taf and weather.taf.raw else "No TAF captured." }}</div>
+  <table class="two-col-weather">
+    <tr>
+      <td class="weather-col">
+        <strong>Departure / Observation Weather</strong>
+        <table>
+          <tr><td>Surface Wind</td><td class="num">{{ departure_weather.surface_wind or '\u2014' }}</td></tr>
+          <tr><td>Visibility</td><td class="num">{{ departure_weather.visibility or '\u2014' }}</td></tr>
+          <tr><td>Ceiling</td><td class="num">{{ departure_weather.ceiling or '\u2014' }}</td></tr>
+          <tr><td>Temp / Dew Pt</td><td class="num">{{ departure_weather.temp_dewpoint or '\u2014' }}</td></tr>
+          <tr><td>Altimeter</td><td class="num">{{ departure_weather.altimeter or '\u2014' }}</td></tr>
+          <tr><td>Crosswind Component</td><td class="num">{{ departure_weather.crosswind_component or '\u2014' }} kt</td></tr>
+          <tr><td>Max Demo. Crosswind</td><td class="num">{{ departure_weather.max_demo_crosswind }} kt</td></tr>
+          <tr><td>Airport Elevation</td><td class="num">{{ departure_weather.field_elevation or '\u2014' }} ft</td></tr>
+          <tr><td>Pressure Altitude</td><td class="num">{{ departure_weather.pressure_altitude or '\u2014' }}</td></tr>
+          <tr><td>Density Altitude</td><td class="num">{{ departure_weather.density_altitude or '\u2014' }}</td></tr>
+        </table>
+        <div class="small" style="margin-top:4px;"><strong>METAR:</strong> {{ weather.metar.raw if weather.metar and weather.metar.raw else "Not captured." }}</div>
+        {% if weather.radar_url %}
+        <img class="radar-map" src="{{ weather.radar_url }}" alt="Regional radar">
+        <div class="small">Radar: {{ weather.radar_station }} (NWS radar.weather.gov)</div>
+        {% endif %}
+      </td>
+      <td class="weather-col">
+        <strong>Destination TAF{% if destination_taf and destination_taf.station %} &mdash; {{ destination_taf.station }}{% endif %}</strong>
+        {% if not destination_taf %}
+        <div class="small">No destination / ETA provided &mdash; TAF lookup skipped.</div>
+        {% elif destination_taf.error %}
+        <div class="small">{{ destination_taf.error }}</div>
+        {% else %}
+        <div class="small">ETA {{ destination_taf.eta_local }} local ({{ destination_taf.eta_utc }})</div>
+        {% if destination_taf.conditions %}
+        <table>
+          <tr><td>Wind</td><td class="num">{{ destination_taf.conditions.wind or '\u2014' }}</td></tr>
+          <tr><td>Visibility</td><td class="num">{{ destination_taf.conditions.visibility or '\u2014' }}</td></tr>
+          <tr><td>Sky</td><td class="num">{{ destination_taf.conditions.sky or '\u2014' }}</td></tr>
+          <tr><td>Weather</td><td class="num">{{ destination_taf.conditions.weather or '\u2014' }}</td></tr>
+        </table>
+        {% if destination_taf.conditions.notes %}
+        <div class="small"><strong>Also forecast for this window:</strong><br>
+        {% for note in destination_taf.conditions.notes %}{{ note }}<br>{% endfor %}
+        </div>
+        {% endif %}
+        <div class="small">Altimeter and temp/dewpoint are not forecast in TAFs. Cross-check against the raw TAF below.</div>
+        {% else %}
+        <div class="small">ETA falls outside this TAF's valid period, or the TAF couldn't be parsed. See raw text below.</div>
+        {% endif %}
+        <div class="small" style="margin-top:4px;"><strong>Raw TAF:</strong> {{ destination_taf.raw }}</div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
 
   <h2>Risk Assessment</h2>
   <table>

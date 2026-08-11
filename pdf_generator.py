@@ -9,13 +9,15 @@ from xhtml2pdf import pisa
 from flask import render_template
 
 
-def generate_pdf(form_data, wb_result, risk_result, weather_data):
+def generate_pdf(form_data, wb_result, risk_result, weather_data, departure_weather=None, destination_taf=None):
     html = render_template(
         "pdf_report.html",
         form=form_data,
         wb=wb_result,
         risk=risk_result,
         weather=weather_data,
+        departure_weather=departure_weather or {},
+        destination_taf=destination_taf,
     )
     buffer = io.BytesIO()
     result = pisa.CreatePDF(src=html, dest=buffer)

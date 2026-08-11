@@ -8,6 +8,24 @@ import requests
 BASE_URL = "https://aviationweather.gov/api/data"
 TIMEOUT_SECONDS = 8
 
+WX_CODES = {
+    "RA": "rain", "SN": "snow", "DZ": "drizzle", "SG": "snow grains",
+    "IC": "ice crystals", "PL": "ice pellets", "GR": "hail", "GS": "small hail",
+    "BR": "mist", "FG": "fog", "FU": "smoke", "HZ": "haze", "DU": "dust",
+    "SA": "sand", "PY": "spray", "SQ": "squalls", "FC": "funnel cloud",
+    "TS": "thunderstorm", "SH": "showers", "VC": "in vicinity",
+    "-": "light", "+": "heavy",
+}
+
+CLOUD_COVER = {
+    "SKC": "sky clear", "CLR": "clear below 12,000 ft", "FEW": "few clouds",
+    "SCT": "scattered", "BKN": "broken", "OVC": "overcast", "VV": "obscured sky",
+}
+
+FLIGHT_CAT_LABELS = {
+    "VFR": "VFR", "MVFR": "Marginal VFR", "IFR": "IFR", "LIFR": "Low IFR",
+}
+
 
 def get_radar_station(icao_airport_id):
     """
@@ -83,25 +101,6 @@ def get_taf(station_id):
         return {"error": f"TAF fetch failed: {e}"}
 
 
-WX_CODES = {
-    "RA": "rain", "SN": "snow", "DZ": "drizzle", "SG": "snow grains",
-    "IC": "ice crystals", "PL": "ice pellets", "GR": "hail", "GS": "small hail",
-    "BR": "mist", "FG": "fog", "FU": "smoke", "HZ": "haze", "DU": "dust",
-    "SA": "sand", "PY": "spray", "SQ": "squalls", "FC": "funnel cloud",
-    "TS": "thunderstorm", "SH": "showers", "VC": "in vicinity",
-    "-": "light", "+": "heavy",
-}
-
-CLOUD_COVER = {
-    "SKC": "sky clear", "CLR": "clear below 12,000 ft", "FEW": "few clouds",
-    "SCT": "scattered", "BKN": "broken", "OVC": "overcast", "VV": "obscured sky",
-}
-
-FLIGHT_CAT_LABELS = {
-    "VFR": "VFR", "MVFR": "Marginal VFR", "IFR": "IFR", "LIFR": "Low IFR",
-}
-
-
 def _compass(deg):
     if deg is None:
         return ""
@@ -172,6 +171,232 @@ def _decode_metar(m):
         parts.append(f"Temperature {temp}\u00b0C, dewpoint {dewp}\u00b0C.")
 
     return " ".join(parts)
+
+
+import re
+from datetime import datetime, timedelta, timezone as dt_timezone
+
+TAF_WIND_RE = re.compile(r"^(?P<dir>\d{3}|VRB)(?P<spd>\d{2,3})(G(?P<gust>\d{2,3}))?KT$")
+TAF_VIS_RE = re.compile(r"^(?P<frac>M?\d+(/\d+)?|P6)SM$")
+TAF_SKY_RE = re.compile(r"^(FEW|SCT|BKN|OVC|VV)(\d{3})$")
+TAF_FM_RE = re.compile(r"^FM(?P<day>\d{2})(?P<hour>\d{2})(?P<min>\d{2})$")
+TAF_TIME_RANGE_RE = re.compile(r"^(?P<d1>\d{2})(?P<h1>\d{2})/(?P<d2>\d{2})(?P<h2>\d{2})$")
+TAF_PROB_RE = re.compile(r"^PROB(\d{2})$")
+
+
+def _taf_day_hour_to_dt(day, hour, minute, ref_dt):
+    """Resolve a TAF DDHH(MM) token to a full UTC datetime using ref_dt (the
+    TAF issuance time) for month/year context, handling month rollover."""
+    day, hour, minute = int(day), int(hour), int(minute or 0)
+    year, month = ref_dt.year, ref_dt.month
+    try:
+        candidate = datetime(year, month, day, hour % 24, minute, tzinfo=dt_timezone.utc)
+    except ValueError:
+        return None
+    if hour == 24:
+        candidate += timedelta(hours=24)
+    # If the day number is much earlier than the issuance day, the TAF
+    # period has rolled into the next month.
+    if day < ref_dt.day - 5:
+        if month == 12:
+            candidate = candidate.replace(year=year + 1, month=1)
+        else:
+            candidate = candidate.replace(month=month + 1)
+    return candidate
+
+
+def _decode_taf_fields(tokens):
+    """Pull wind/visibility/sky/weather out of a list of TAF tokens."""
+    fields = {"wind": None, "visibility": None, "sky": [], "weather": None}
+    wx_tokens = []
+    for tok in tokens:
+        m = TAF_WIND_RE.match(tok)
+        if m:
+            gust = f", gusting {m.group('gust')} kt" if m.group("gust") else ""
+            direction = "variable" if m.group("dir") == "VRB" else f"{m.group('dir')}\u00b0"
+            fields["wind"] = f"{direction} at {m.group('spd')} kt{gust}"
+            continue
+        m = TAF_VIS_RE.match(tok)
+        if m:
+            frac = m.group("frac")
+            fields["visibility"] = "6+ SM" if frac == "P6" else f"{frac} SM"
+            continue
+        m = TAF_SKY_RE.match(tok)
+        if m:
+            cover, base = m.group(1), int(m.group(2)) * 100
+            fields["sky"].append(f"{CLOUD_COVER.get(cover, cover)} at {base} ft")
+            continue
+        if tok in ("SKC", "CLR", "NSW"):
+            fields["sky"].append(CLOUD_COVER.get(tok, tok))
+            continue
+        # Leftover tokens (weather phenomena codes like -RA, BR, etc.)
+        if re.match(r"^[+-]?[A-Z]{2,6}$", tok) and tok not in ("KT", "SM"):
+            wx_tokens.append(tok)
+    if wx_tokens:
+        fields["weather"] = _decode_wx_string(" ".join(wx_tokens))
+    return fields
+
+
+def parse_taf_periods(raw_taf):
+    """
+    Parse a raw TAF string into a list of period dicts:
+    {type: 'base'|'tempo'|'becmg'|'prob', start, end, probability, fields}
+    Best-effort parser covering FM/TEMPO/BECMG/PROBnn groups, which covers
+    the vast majority of U.S. TAFs. Returns [] if the TAF can't be parsed.
+    """
+    if not raw_taf:
+        return []
+    tokens = raw_taf.replace("\n", " ").split()
+    if not tokens or tokens[0] != "TAF":
+        return []
+
+    # Find issuance time (DDHHMMZ) and overall valid period (DDHH/DDHH)
+    issuance = next((t for t in tokens if re.match(r"^\d{6}Z$", t)), None)
+    valid_range = next((t for t in tokens if TAF_TIME_RANGE_RE.match(t)), None)
+    if not issuance or not valid_range:
+        return []
+
+    now = datetime.now(dt_timezone.utc)
+    ref_dt = now.replace(day=int(issuance[:2]), hour=int(issuance[2:4]),
+                          minute=int(issuance[4:6]), second=0, microsecond=0)
+
+    m = TAF_TIME_RANGE_RE.match(valid_range)
+    period_start = _taf_day_hour_to_dt(m.group("d1"), m.group("h1"), 0, ref_dt)
+    period_end = _taf_day_hour_to_dt(m.group("d2"), m.group("h2"), 0, ref_dt)
+    if not period_start or not period_end:
+        return []
+
+    # Split remaining tokens (after the valid_range token) into groups,
+    # each starting at a FM/TEMPO/BECMG/PROBnn keyword.
+    start_idx = tokens.index(valid_range) + 1
+    body = tokens[start_idx:]
+
+    groups = []  # (type, header_tokens, condition_tokens)
+    current_type = "base"
+    current_header = []
+    current_tokens = []
+
+    def flush():
+        if current_tokens or current_header or current_type == "base":
+            groups.append((current_type, current_header, current_tokens))
+
+    i = 0
+    while i < len(body):
+        tok = body[i]
+        if TAF_FM_RE.match(tok):
+            flush()
+            current_type, current_header, current_tokens = "fm", [tok], []
+        elif tok == "TEMPO":
+            flush()
+            current_type, current_header, current_tokens = "tempo", [tok], []
+        elif tok == "BECMG":
+            flush()
+            current_type, current_header, current_tokens = "becmg", [tok], []
+        elif TAF_PROB_RE.match(tok):
+            flush()
+            current_type, current_header, current_tokens = "prob", [tok], []
+        else:
+            if current_type in ("tempo", "becmg", "prob") and TAF_TIME_RANGE_RE.match(tok) and len(current_header) == 1:
+                current_header.append(tok)
+            else:
+                current_tokens.append(tok)
+        i += 1
+    flush()
+
+    periods = []
+    base_start = period_start
+    base_segments_raw = [g for g in groups if g[0] in ("base", "fm")]
+
+    for idx, (gtype, header, cond_tokens) in enumerate(base_segments_raw):
+        if gtype == "fm":
+            m = TAF_FM_RE.match(header[0])
+            seg_start = _taf_day_hour_to_dt(m.group("day"), m.group("hour"), m.group("min"), ref_dt)
+        else:
+            seg_start = period_start
+        seg_end = period_end
+        if idx + 1 < len(base_segments_raw):
+            nxt_type, nxt_header, _ = base_segments_raw[idx + 1]
+            if nxt_type == "fm":
+                m2 = TAF_FM_RE.match(nxt_header[0])
+                seg_end = _taf_day_hour_to_dt(m2.group("day"), m2.group("hour"), m2.group("min"), ref_dt)
+        if seg_start:
+            periods.append({
+                "type": "base", "start": seg_start, "end": seg_end,
+                "probability": None, "fields": _decode_taf_fields(cond_tokens),
+            })
+
+    for gtype, header, cond_tokens in groups:
+        if gtype not in ("tempo", "becmg", "prob"):
+            continue
+        prob_pct = None
+        time_tok = None
+        if gtype == "prob":
+            prob_match = TAF_PROB_RE.match(header[0])
+            prob_pct = prob_match.group(1) if prob_match else None
+            time_tok = header[1] if len(header) > 1 else None
+        else:
+            time_tok = header[1] if len(header) > 1 else None
+        if not time_tok:
+            continue
+        m3 = TAF_TIME_RANGE_RE.match(time_tok)
+        if not m3:
+            continue
+        seg_start = _taf_day_hour_to_dt(m3.group("d1"), m3.group("h1"), 0, ref_dt)
+        seg_end = _taf_day_hour_to_dt(m3.group("d2"), m3.group("h2"), 0, ref_dt)
+        if seg_start and seg_end:
+            periods.append({
+                "type": gtype, "start": seg_start, "end": seg_end,
+                "probability": prob_pct, "fields": _decode_taf_fields(cond_tokens),
+            })
+
+    return periods
+
+
+def get_taf_conditions_for_time(raw_taf, target_dt_utc):
+    """
+    Given a raw TAF and a target UTC datetime, return the applicable base
+    conditions plus any overlapping TEMPO/BECMG/PROB conditions. Returns
+    None if the TAF can't be parsed or the target time is outside the
+    TAF's valid period.
+    """
+    periods = parse_taf_periods(raw_taf)
+    if not periods:
+        return None
+
+    base = None
+    overlays = []
+    for p in periods:
+        if p["start"] and p["end"] and p["start"] <= target_dt_utc < p["end"]:
+            if p["type"] == "base":
+                base = p
+            else:
+                overlays.append(p)
+
+    if base is None:
+        return None
+
+    result = {
+        "wind": base["fields"]["wind"],
+        "visibility": base["fields"]["visibility"],
+        "sky": "; ".join(base["fields"]["sky"]) if base["fields"]["sky"] else None,
+        "weather": base["fields"]["weather"],
+        "notes": [],
+    }
+    for ov in overlays:
+        label = {"tempo": "TEMPO", "becmg": "BECMG", "prob": f"PROB{ov['probability']}"}.get(ov["type"], ov["type"].upper())
+        parts = []
+        if ov["fields"]["wind"]:
+            parts.append(f"wind {ov['fields']['wind']}")
+        if ov["fields"]["visibility"]:
+            parts.append(f"vis {ov['fields']['visibility']}")
+        if ov["fields"]["sky"]:
+            parts.append(f"sky {'; '.join(ov['fields']['sky'])}")
+        if ov["fields"]["weather"]:
+            parts.append(ov["fields"]["weather"])
+        if parts:
+            result["notes"].append(f"{label}: {', '.join(parts)}")
+
+    return result
 
 
 def _hpa_to_inhg(hpa):

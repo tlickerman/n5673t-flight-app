@@ -1,4 +1,9 @@
 from flask import Flask, render_template, request, jsonify, send_file
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 
 import aircraft_constants as AC
 import database
@@ -14,7 +19,7 @@ database.init_db()
 # which cache far more aggressively than a normal Safari tab, are forced
 # to fetch the new file instead of silently running stale JS against a
 # changed HTML structure.
-APP_VERSION = "3"
+APP_VERSION = "4"
 
 
 @app.context_processor
@@ -106,7 +111,54 @@ def api_submit():
 
     database.log_submission(form_data, wb_result, risk_result)
 
-    pdf_buffer = generate_pdf(form_data, wb_result, risk_result, weather_data)
+    # Structured departure-weather detail (recomputed server-side so the
+    # PDF doesn't depend on client-formatted readonly field text).
+    metar = (weather_data or {}).get("metar") or {}
+    field_elev = form_data.get("field_elevation")
+    pressure_alt = weather.compute_pressure_altitude(field_elev, metar.get("altimeter_inhg")) if field_elev else None
+    density_alt = weather.compute_density_altitude(pressure_alt, metar.get("temp_c")) if pressure_alt is not None else None
+    departure_weather = {
+        "metar": metar,
+        "surface_wind": (f"{metar.get('wind_dir_deg', 'VRB')}\u00b0 @ {metar.get('wind_speed_kt', 0)}kt"
+                          + (f" G{metar['wind_gust_kt']}" if metar.get("wind_gust_kt") else "")) if metar.get("wind_speed_kt") is not None else None,
+        "visibility": f"{metar['visibility_sm']} SM" if metar.get("visibility_sm") is not None else None,
+        "ceiling": f"{metar['ceiling_ft']} ft" if metar.get("ceiling_ft") is not None else "Unlimited / SKC",
+        "temp_dewpoint": f"{metar.get('temp_c', '\u2014')}\u00b0C / {metar.get('dewpoint_c', '\u2014')}\u00b0C" if metar.get("temp_c") is not None else None,
+        "altimeter": f"{metar['altimeter_inhg']} inHg" if metar.get("altimeter_inhg") is not None else None,
+        "crosswind_component": form_data.get("crosswind_component"),
+        "max_demo_crosswind": AC.MAX_DEMONSTRATED_CROSSWIND_KT,
+        "field_elevation": field_elev,
+        "pressure_altitude": f"{pressure_alt} ft" if pressure_alt is not None else None,
+        "density_altitude": f"{density_alt} ft" if density_alt is not None else None,
+    }
+
+    # Destination TAF, matched to the pilot's estimated arrival time
+    # (assumes Central Time — the aircraft's home base timezone).
+    destination_taf = None
+    dest_airport = (form_data.get("destination_airport") or "").strip()
+    eta_local = form_data.get("eta_destination")
+    flight_date = form_data.get("date")
+    if dest_airport and eta_local and flight_date and ZoneInfo:
+        try:
+            local_dt = datetime.fromisoformat(f"{flight_date}T{eta_local}")
+            local_dt = local_dt.replace(tzinfo=ZoneInfo("America/Chicago"))
+            target_utc = local_dt.astimezone(ZoneInfo("UTC"))
+            dest_taf_raw = weather.get_taf(dest_airport)
+            if dest_taf_raw and dest_taf_raw.get("raw"):
+                conditions = weather.get_taf_conditions_for_time(dest_taf_raw["raw"], target_utc)
+                destination_taf = {
+                    "station": dest_airport.upper(),
+                    "eta_local": eta_local,
+                    "eta_utc": target_utc.strftime("%d%H%MZ"),
+                    "raw": dest_taf_raw["raw"],
+                    "conditions": conditions,
+                }
+            elif dest_taf_raw and dest_taf_raw.get("error"):
+                destination_taf = {"station": dest_airport.upper(), "error": dest_taf_raw["error"]}
+        except (ValueError, TypeError):
+            destination_taf = {"station": dest_airport.upper(), "error": "Could not parse destination/ETA for TAF lookup."}
+
+    pdf_buffer = generate_pdf(form_data, wb_result, risk_result, weather_data, departure_weather, destination_taf)
     filename = f"N5673T_Flight_Assessment_{form_data.get('date', 'undated')}.pdf"
     return send_file(
         pdf_buffer,

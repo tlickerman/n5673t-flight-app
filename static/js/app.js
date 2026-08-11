@@ -179,7 +179,7 @@ function calcRisk() {
 function collectFormData() {
   const ids = [
     "date", "n_number", "pilot_1", "pilot_2", "start_time", "stop_time",
-    "departure_airport", "destination_airport", "mission_notes",
+    "departure_airport", "destination_airport", "eta_destination", "mission_notes",
     "departure_routing", "arrival_routing", "notams", "emergency_procedures",
     "risk_considerations", "hours_prev_24", "wx_station", "crosswind_component",
     "field_elevation", "regional_wx_notes", "pilot_lb", "passenger_lb", "baggage_lb",
