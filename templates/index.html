@@ -57,6 +57,12 @@
         <button class="fetch-btn" onclick="fetchWeather()">Fetch METAR / TAF</button>
       </div>
       <div id="metar-display"></div>
+      <div id="metar-decoded" class="note"></div>
+      <div class="field-row wide" style="margin-top: 10px;">
+        <label>Regional Radar (<span id="radar-station-label">KLOT</span>)</label>
+      </div>
+      <img id="radar-map" src="" alt="Regional radar loop" style="width:100%; border-radius:8px; border:1px solid var(--border); display:none;">
+      <div class="note">Source: NWS radar.weather.gov. Refer to aviationweather.gov for AIRMET/SIGMET graphical products.</div>
       <div class="field-row"><label>Surface Wind (auto)</label><input type="text" id="surface_wind" readonly></div>
       <div class="field-row"><label>Visibility (auto)</label><input type="text" id="visibility" readonly></div>
       <div class="field-row"><label>Ceiling (auto)</label><input type="text" id="ceiling" readonly></div>

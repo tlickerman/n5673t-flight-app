@@ -39,7 +39,13 @@ def index():
 def api_weather(station_id):
     metar = weather.get_metar(station_id)
     taf = weather.get_taf(station_id)
-    return jsonify({"metar": metar, "taf": taf})
+    radar_station = weather.get_radar_station(station_id)
+    return jsonify({
+        "metar": metar,
+        "taf": taf,
+        "radar_station": radar_station,
+        "radar_url": f"https://radar.weather.gov/ridge/standard/{radar_station}_loop.gif",
+    })
 
 
 @app.route("/api/density-altitude")

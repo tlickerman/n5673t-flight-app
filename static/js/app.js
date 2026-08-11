@@ -89,6 +89,14 @@ async function fetchWeather() {
     return;
   }
   displayEl.innerHTML = `<div class="metar-raw">${m.raw || ""}</div>`;
+  document.getElementById("metar-decoded").textContent = m.decoded || "";
+
+  if (data.radar_url) {
+    const radarImg = document.getElementById("radar-map");
+    radarImg.src = `${data.radar_url}?t=${Date.now()}`;
+    radarImg.style.display = "block";
+    document.getElementById("radar-station-label").textContent = data.radar_station || "KLOT";
+  }
 
   if (m.wind_dir_deg !== undefined) {
     const gust = m.wind_gust_kt ? ` G${m.wind_gust_kt}` : "";
@@ -226,6 +234,10 @@ function resetForm() {
   });
   document.querySelectorAll("[id^='risk-']").forEach((sel) => { sel.selectedIndex = 0; });
   document.getElementById("metar-display").innerHTML = "";
+  document.getElementById("metar-decoded").textContent = "";
+  const radarImg = document.getElementById("radar-map");
+  radarImg.src = "";
+  radarImg.style.display = "none";
   window._lastWeather = null;
   calcWB();
   calcRisk();
