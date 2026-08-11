@@ -121,13 +121,8 @@
 
   <h2>Risk Assessment</h2>
   <table>
-    <tr><th>Category</th><th class="num">Score</th></tr>
-    {% for cat, total in risk.category_totals.items() %}
-    <tr><td>{{ cat|capitalize }}</td><td class="num">{{ total }}</td></tr>
-    {% endfor %}
     <tr><td><strong>Grand Total</strong></td><td class="num"><strong>{{ risk.grand_total }}</strong></td></tr>
   </table>
-  <div class="{{ 'status-ok' if risk.level == 'green' else 'status-warn' }}">{{ risk.level_label }}</div>
   {% if risk.manager_approval_required %}<div class="status-warn">Manager approval required.</div>{% endif %}
 
   <h3 style="font-size:10pt; margin-top:10px;">Detailed Responses</h3>

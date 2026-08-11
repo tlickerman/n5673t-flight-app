@@ -118,9 +118,9 @@ V_SPEEDS = {
     "Vs0": {"kias": 37, "kcas": None, "label": "Stall speed, landing config (calculated, verify)"},
     "Vs1": {"kias": 44, "kcas": None, "label": "Stall speed, clean config (calculated, verify)"},
     "Vg": {"kias": 65, "kcas": None, "label": "Best glide"},
-    "Vapp_short": {"kias": None, "kcas": None, "label": "Short field approach — verify POH Sec 4"},
-    "Vapp_normal": {"kias": None, "kcas": None, "label": "Normal approach — verify POH Sec 4"},
-    "Vapp_flapless": {"kias": None, "kcas": None, "label": "Flapless approach — verify POH Sec 4"},
+    "Vapp_short": {"kias": 55, "kcas": None, "label": "Short field approach"},
+    "Vapp_normal": {"kias": 65, "kcas": None, "label": "Normal approach"},
+    "Vapp_flapless": {"kias": 70, "kcas": None, "label": "Flapless approach"},
 }
 
 # ---------------------------------------------------------------------------
