@@ -19,7 +19,7 @@ database.init_db()
 # which cache far more aggressively than a normal Safari tab, are forced
 # to fetch the new file instead of silently running stale JS against a
 # changed HTML structure.
-APP_VERSION = "4"
+APP_VERSION = "5"
 
 
 @app.context_processor
@@ -94,6 +94,32 @@ def api_calculate_risk():
     return jsonify(result)
 
 
+@app.route("/api/destination-taf")
+def api_destination_taf():
+    station = (request.args.get("station") or "").strip().upper()
+    date_str = request.args.get("date")
+    time_str = request.args.get("time")
+    if not station:
+        return jsonify({"error": "No station provided."})
+
+    taf_raw = weather.get_taf(station)
+    if not taf_raw or taf_raw.get("error"):
+        return jsonify({"station": station, "error": (taf_raw or {}).get("error", "TAF fetch failed.")})
+
+    result = {"station": station, "raw": taf_raw.get("raw")}
+    if date_str and time_str and ZoneInfo:
+        try:
+            local_dt = datetime.fromisoformat(f"{date_str}T{time_str}")
+            local_dt = local_dt.replace(tzinfo=ZoneInfo("America/Chicago"))
+            target_utc = local_dt.astimezone(ZoneInfo("UTC"))
+            result["eta_local"] = time_str
+            result["eta_utc"] = target_utc.strftime("%d%H%MZ")
+            result["conditions"] = weather.get_taf_conditions_for_time(taf_raw.get("raw"), target_utc)
+        except (ValueError, TypeError):
+            result["error"] = "Could not parse date/time for TAF matching."
+    return jsonify(result)
+
+
 @app.route("/api/submit", methods=["POST"])
 def api_submit():
     payload = request.get_json(force=True) or {}
@@ -132,11 +158,13 @@ def api_submit():
         "density_altitude": f"{density_alt} ft" if density_alt is not None else None,
     }
 
-    # Destination TAF, matched to the pilot's estimated arrival time
-    # (assumes Central Time — the aircraft's home base timezone).
+    # Destination TAF, matched to the pilot's chosen station/ETA. The
+    # dest_taf_station/dest_taf_time fields are editable overrides (e.g.
+    # substituting KGRB when the actual destination has no TAF service);
+    # fall back to the mission's destination_airport/eta if not set.
     destination_taf = None
-    dest_airport = (form_data.get("destination_airport") or "").strip()
-    eta_local = form_data.get("eta_destination")
+    dest_airport = (form_data.get("dest_taf_station") or form_data.get("destination_airport") or "").strip()
+    eta_local = form_data.get("dest_taf_time") or form_data.get("eta_destination")
     flight_date = form_data.get("date")
     if dest_airport and eta_local and flight_date and ZoneInfo:
         try:

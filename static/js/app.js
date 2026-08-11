@@ -8,6 +8,54 @@ function fmt(n) {
 }
 
 // ---------------------------------------------------------------------
+// Weather station sync (Mission Briefing -> Current Conditions fields)
+// ---------------------------------------------------------------------
+function syncWeatherStations() {
+  const dep = document.getElementById("departure_airport").value.trim().toUpperCase();
+  const dest = document.getElementById("destination_airport").value.trim().toUpperCase();
+  const eta = document.getElementById("eta_destination").value;
+  if (dep) document.getElementById("wx_station").value = dep;
+  if (dest) document.getElementById("dest_taf_station").value = dest;
+  if (eta) document.getElementById("dest_taf_time").value = eta;
+}
+
+async function fetchDestinationTaf() {
+  const station = document.getElementById("dest_taf_station").value.trim().toUpperCase();
+  const time = document.getElementById("dest_taf_time").value;
+  const date = document.getElementById("date").value;
+  const displayEl = document.getElementById("dest-taf-display");
+  if (!station) {
+    displayEl.innerHTML = `<div class="status-banner warn"><span class="dot red"></span>Enter a destination airport ID first.</div>`;
+    return;
+  }
+  const params = new URLSearchParams({ station });
+  if (date) params.set("date", date);
+  if (time) params.set("time", time);
+  const resp = await fetch(`/api/destination-taf?${params}`);
+  const data = await resp.json();
+  window._lastDestTaf = data;
+
+  if (data.error) {
+    displayEl.innerHTML = `<div class="status-banner warn"><span class="dot red"></span>${data.error}</div>`;
+    return;
+  }
+
+  let html = `<div class="metar-raw">${data.raw || "No TAF text returned."}</div>`;
+  if (data.conditions) {
+    const c = data.conditions;
+    html += `<div class="note" style="margin-top:6px;">ETA ${data.eta_local} local (${data.eta_utc})<br>
+      Wind: ${c.wind || "\u2014"} &middot; Visibility: ${c.visibility || "\u2014"} &middot; Sky: ${c.sky || "\u2014"}
+      ${c.weather ? " &middot; Weather: " + c.weather : ""}</div>`;
+    if (c.notes && c.notes.length) {
+      html += `<div class="note">Also forecast for this window: ${c.notes.join(" \u2014 ")}</div>`;
+    }
+  } else if (data.eta_local) {
+    html += `<div class="note">ETA falls outside this TAF's valid period, or it couldn't be matched. Raw TAF shown above.</div>`;
+  }
+  displayEl.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------
 // Weight & Balance
 // ---------------------------------------------------------------------
 async function calcWB() {
@@ -179,7 +227,8 @@ function calcRisk() {
 function collectFormData() {
   const ids = [
     "date", "n_number", "pilot_1", "pilot_2", "start_time", "stop_time",
-    "departure_airport", "destination_airport", "eta_destination", "mission_notes",
+    "departure_airport", "destination_airport", "eta_destination",
+    "dest_taf_station", "dest_taf_time", "mission_notes",
     "departure_routing", "arrival_routing", "notams", "emergency_procedures",
     "risk_considerations", "hours_prev_24", "wx_station", "crosswind_component",
     "field_elevation", "regional_wx_notes", "pilot_lb", "passenger_lb", "baggage_lb",
@@ -250,7 +299,10 @@ function resetForm() {
   const radarImg = document.getElementById("radar-map");
   radarImg.src = "";
   radarImg.style.display = "none";
+  document.getElementById("dest-taf-display").innerHTML = "";
   window._lastWeather = null;
+  window._lastDestTaf = null;
+  syncWeatherStations();
   calcWB();
   calcRisk();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -258,6 +310,7 @@ function resetForm() {
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("date").valueAsDate = new Date();
+  syncWeatherStations();
   calcWB();
   calcRisk();
 });

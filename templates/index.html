@@ -36,9 +36,9 @@
         <div class="field-row wide"><label>Start Time</label><input type="time" id="start_time"></div>
         <div class="field-row wide"><label>Stop Time</label><input type="time" id="stop_time"></div>
       </div>
-      <div class="field-row wide"><label>Departure Airport (ICAO)</label><input type="text" id="departure_airport" value="KPWK"></div>
-      <div class="field-row wide"><label>Destination / Satellite Airfields</label><input type="text" id="destination_airport"></div>
-      <div class="field-row wide"><label>Destination ETA (local time)</label><input type="time" id="eta_destination"></div>
+      <div class="field-row wide"><label>Departure Airport (ICAO)</label><input type="text" id="departure_airport" value="KPWK" oninput="syncWeatherStations()"></div>
+      <div class="field-row wide"><label>Destination / Satellite Airfields</label><input type="text" id="destination_airport" oninput="syncWeatherStations()"></div>
+      <div class="field-row wide"><label>Destination ETA (local time)</label><input type="time" id="eta_destination" oninput="syncWeatherStations()"></div>
       <div class="field-row wide"><label>Lesson Requirements / Mission</label><textarea id="mission_notes"></textarea></div>
       <div class="field-row wide"><label>Departure Routing / Plan of Action</label><textarea id="departure_routing"></textarea></div>
       <div class="field-row wide"><label>Arrival Routing / Pattern Entry</label><textarea id="arrival_routing"></textarea></div>
@@ -55,7 +55,7 @@
       <h2>Current Conditions</h2><span class="chev">&#9660;</span>
     </div>
     <div class="panel-body">
-      <div class="field-row wide"><label>Airport for Wx Observation</label><input type="text" id="wx_station" value="KPWK"></div>
+      <div class="field-row wide"><label>Departure Airport (auto from Mission Briefing)</label><input type="text" id="wx_station" value="KPWK"></div>
       <div class="weather-actions">
         <button class="fetch-btn" onclick="fetchWeather()">Fetch METAR / TAF</button>
       </div>
@@ -77,6 +77,15 @@
       <div class="field-row"><label>Pressure altitude (ft)</label><input type="text" id="pressure_altitude" readonly></div>
       <div class="field-row"><label>Density altitude (ft)</label><input type="text" id="density_altitude" readonly></div>
       <div class="field-row wide"><label>Regional Wx / AIRMET / SIGMET / PIREP notes</label><textarea id="regional_wx_notes"></textarea></div>
+
+      <hr style="border-color: var(--border); margin: 16px 0;">
+
+      <div class="field-row wide"><label>Destination Airport for TAF (auto from Mission Briefing &mdash; change if this station has no TAF service, e.g. use KGRB instead of a small field)</label><input type="text" id="dest_taf_station"></div>
+      <div class="field-row wide"><label>ETA at Destination (local time, auto from Mission Briefing)</label><input type="time" id="dest_taf_time"></div>
+      <div class="weather-actions">
+        <button class="fetch-btn" onclick="fetchDestinationTaf()">Fetch Destination TAF</button>
+      </div>
+      <div id="dest-taf-display"></div>
     </div>
   </section>
 
